@@ -246,6 +246,7 @@ function crossfilter() {
           reduceAdd,
           reduceRemove,
           reduceInitial,
+          reduceFinalize,
           update = crossfilter_null,
           reset = crossfilter_null,
           resetNeeded = true;
@@ -473,10 +474,11 @@ function crossfilter() {
 
       // Sets the reduce behavior for this group to use the specified functions.
       // This method lazily recomputes the reduce values, waiting until needed.
-      function reduce(add, remove, initial) {
+      function reduce(add, remove, initial, finalize) {
         reduceAdd = add;
         reduceRemove = remove;
         reduceInitial = initial;
+        reduceFinalize = finalize;
         resetNeeded = true;
         return group;
       }
@@ -541,6 +543,7 @@ function crossfilter() {
         reduceAdd,
         reduceRemove,
         reduceInitial,
+        reduceFinalize,
         resetNeeded = true;
 
     // The group listens to the crossfilter for when any dimension changes, so
@@ -604,10 +607,11 @@ function crossfilter() {
 
     // Sets the reduce behavior for this group to use the specified functions.
     // This method lazily recomputes the reduce value, waiting until needed.
-    function reduce(add, remove, initial) {
+    function reduce(add, remove, initial, finalize) {
       reduceAdd = add;
       reduceRemove = remove;
       reduceInitial = initial;
+      reduceFinalize = finalize;
       resetNeeded = true;
       return group;
     }
@@ -625,7 +629,11 @@ function crossfilter() {
     // Returns the computed reduce value.
     function value() {
       if (resetNeeded) reset(), resetNeeded = false;
-      return reduceValue;
+      if (reduceFinalize) {
+        return reduceFinalize(reduceValue)
+      } else {
+        return reduceValue;
+      }
     }
 
     return reduceCount();
