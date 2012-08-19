@@ -474,11 +474,10 @@ function crossfilter() {
 
       // Sets the reduce behavior for this group to use the specified functions.
       // This method lazily recomputes the reduce values, waiting until needed.
-      function reduce(add, remove, initial, finalize) {
-        reduceAdd = add;
-        reduceRemove = remove;
-        reduceInitial = initial;
-        reduceFinalize = finalize;
+      function reduce(add, remove, initial) {
+        reduceAdd = add.hasOwnProperty('add') ? add.add : add;
+        reduceRemove = add.hasOwnProperty('remove') ? add.remove : remove;
+        reduceInitial = add.hasOwnProperty('initial') ? add.initial : initial;
         resetNeeded = true;
         return group;
       }
@@ -607,11 +606,16 @@ function crossfilter() {
 
     // Sets the reduce behavior for this group to use the specified functions.
     // This method lazily recomputes the reduce value, waiting until needed.
-    function reduce(add, remove, initial, finalize) {
-      reduceAdd = add;
-      reduceRemove = remove;
-      reduceInitial = initial;
-      reduceFinalize = finalize;
+    //
+    // reduce can take parameters add, remove, and initial or an object with
+    // add, remove and initial properties.
+    // add the function to call when rows are added
+    // remove the function to call when rows are removed
+    // initial the initial value
+    function reduce(add, remove, initial) {
+      reduceAdd = add.hasOwnProperty('add') ? add.add : add;
+      reduceRemove = add.hasOwnProperty('remove') ? add.remove : remove;
+      reduceInitial = add.hasOwnProperty('initial') ? add.initial : initial;
       resetNeeded = true;
       return group;
     }
@@ -629,11 +633,7 @@ function crossfilter() {
     // Returns the computed reduce value.
     function value() {
       if (resetNeeded) reset(), resetNeeded = false;
-      if (reduceFinalize) {
-        return reduceFinalize(reduceValue)
-      } else {
-        return reduceValue;
-      }
+      return reduceValue;
     }
 
     return reduceCount();
