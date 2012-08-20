@@ -25,6 +25,7 @@
         }
       }
     }
+    return val;
   }
 
   function coreops_reduceAdd(f) {
@@ -109,7 +110,7 @@
 
   // Calculate the total value in value
   function sum(prop) {
-    var accessor = function(d) { return d[prop] };
+    var accessor = (_.isFunction(prop)) ? prop : function(d) { return d[prop] };
     return {
             add: coreops_reduceAdd(accessor),
             remove: coreops_reduceSubtract(accessor),
@@ -151,7 +152,28 @@
             add: coreops_reduceIncrement,
             remove: coreops_reduceDecrement,
             initial: coreops_initialZero
-          }
+    }
+  }
+
+
+// This is what it should look like
+//  data.type.group().reduce(coreops.compose({
+//    "tip_extents": coreops.extents('tip'),
+//    "quantity_total": coreops.sum('quantity')
+//  }).all();
+
+  function compose(ops) {
+    return {
+      add: function(p, v) {
+
+      },
+      remove: function(p, v) {
+
+      },
+      initial: function() {
+
+      }
+    }
   }
 
   coreops.sum = sum;

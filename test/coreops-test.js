@@ -39,6 +39,7 @@ suite.addBatch({
 
     "test sum": function(data) {
       assert(data.tip.groupAll().reduce(coreops.sum('tip')).value() == 400);
+      assert(data.tip.groupAll().reduce(coreops.sum(function(d) { return d.tip })).value() == 400);
 
       // Testing group with reduceFactory
       assert.deepEqual(data.type.group().reduce(coreops.sum('tip')).all(),
@@ -79,23 +80,22 @@ suite.addBatch({
           [ { value: [0, 0], key: 'cash' },
             { value: [0, 100], key: 'tab' },
             { value: [200, 200], key: 'visa' }   ]);
-
     },
 
     "test finalize": function(data) {
       var v = { key: "moo", value: function() { return 99; }};
-      assert(v == 99);
+      assert(coreops.finalize(v) == 99);
 
       var v = { key: "moo", value: { value: function() { return 99; }}};
       var v2 = coreops.finalize(v);
       assert.deepEqual(v2, { key: "moo", value: 99});
 
       var v = [
-        { key: "vt", value: { value: function() { return 81; }}},
-        { key: "nh", value: { value: function() { return 99; }}},
+        { key: "vt", value: { sum: 500, count: 5, value: function() { return this.sum / this.count; }}},
+        { key: "nh", value: { sum: 555, count: 5, value: function() { return this.sum / this.count; }}}
       ];
       var v2 = coreops.finalize(v);
-      assert.deepEqual(v2, [ { key: 'vt', value: 81 }, { key: 'nh', value: 99 } ]);
+      assert.deepEqual(v2, [ { key: 'vt', value: 100 }, { key: 'nh', value: 111 } ]);
     }
 
 
