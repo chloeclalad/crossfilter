@@ -99,7 +99,7 @@
     var accessor = function(d) { return d[prop] };
     return {
             add: coreops_reduceAddAverage(accessor),
-            remove: coreops_reduceSubtractAverage(accessor),
+            remove: coreops_reduceRemoveAverage(accessor),
             initial: function() { return {
                 count: 0,
                 sum: 0,
