@@ -80,6 +80,22 @@ suite.addBatch({
             { value: [0, 100], key: 'tab' },
             { value: [200, 200], key: 'visa' }   ]);
 
+    },
+
+    "test finalize": function(data) {
+      var v = { key: "moo", value: function() { return 99; }};
+      assert(v == 99);
+
+      var v = { key: "moo", value: { value: function() { return 99; }}};
+      var v2 = coreops.finalize(v);
+      assert.deepEqual(v2, { key: "moo", value: 99});
+
+      var v = [
+        { key: "vt", value: { value: function() { return 81; }}},
+        { key: "nh", value: { value: function() { return 99; }}},
+      ];
+      var v2 = coreops.finalize(v);
+      assert.deepEqual(v2, [ { key: 'vt', value: 81 }, { key: 'nh', value: 99 } ]);
     }
 
 
