@@ -61,21 +61,22 @@ suite.addBatch({
 
     "test average": function(data) {
       var val = data.tip.groupAll().reduce(coreops.average('tip')).value();
-      assert(val.value() == 80);
+      assert(val.finalize() == 80);
       var grpval = data.type.group().reduce(coreops.average('tip')).all();
-      grpval = _.map(grpval, function(d) { return { key:d.key, value: d.value.value()}});
+      grpval = _.map(grpval, function(d) { return { key:d.key, value: d.value.finalize()}});
       assert.deepEqual(grpval,
           [ { value: 0, key: 'cash' },
             { value: 66.66666666666667, key: 'tab' },
             { value: 200, key: 'visa' }   ]);
     },
 
+
     "test extents": function(data) {
       var val = data.tip.groupAll().reduce(coreops.extents('tip')).value();
-      assert.deepEqual(val.value(), [0, 200]);
+      assert.deepEqual(val.finalize(), [0, 200]);
 
       var grpval = data.type.group().reduce(coreops.extents('tip')).all();
-      grpval = _.map(grpval, function(d) { return { key:d.key, value: d.value.value()}});
+      grpval = _.map(grpval, function(d) { return { key:d.key, value: d.value.finalize()}});
       assert.deepEqual(grpval,
           [ { value: [0, 0], key: 'cash' },
             { value: [0, 100], key: 'tab' },
@@ -83,16 +84,16 @@ suite.addBatch({
     },
 
     "test finalize": function(data) {
-      var v = { key: "moo", value: function() { return 99; }};
+      var v = { key: "moo", finalize: function() { return 99; }};
       assert(coreops.finalize(v) == 99);
 
-      var v = { key: "moo", value: { value: function() { return 99; }}};
+      var v = { key: "moo", value: { finalize: function() { return 99; }}};
       var v2 = coreops.finalize(v);
       assert.deepEqual(v2, { key: "moo", value: 99});
 
       var v = [
-        { key: "vt", value: { sum: 500, count: 5, value: function() { return this.sum / this.count; }}},
-        { key: "nh", value: { sum: 555, count: 5, value: function() { return this.sum / this.count; }}}
+        { key: "vt", value: { sum: 500, count: 5, finalize: function() { return this.sum / this.count; }}},
+        { key: "nh", value: { sum: 555, count: 5, finalize: function() { return this.sum / this.count; }}}
       ];
       var v2 = coreops.finalize(v);
       assert.deepEqual(v2, [ { key: 'vt', value: 100 }, { key: 'nh', value: 111 } ]);

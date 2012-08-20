@@ -6,7 +6,7 @@
   /**
    * Normalize a response from crossfilter reduce
    *
-   * If value objects contain a callable function value(), call that and
+   * If value objects contain a callable function finalize(), call that and
    * replace the value with the result.
    * @param val
    */
@@ -14,8 +14,8 @@
     if (_.isArray(val)) {
       _.map(val, finalize);
     } else {
-      if (_.has(val, 'value') && _.isFunction(val.value)) {
-        return val.value();
+      if (_.has(val, 'finalize') && _.isFunction(val.finalize)) {
+        return val.finalize();
       } else {
         if (_.has(val, 'value') && _.isObject(val.value)) {
           val.value = finalize(val.value);
@@ -83,7 +83,7 @@
   function coreops_initialExtents() {
     return {
       candidates: [],
-      value: function() {
+      finalize: function() {
         var min, max;
         _.each(this.candidates, function(d) {
           if (min === undefined) min = d;
@@ -127,7 +127,7 @@
             initial: function() { return {
                 count: 0,
                 sum: 0,
-                value: function() {
+                finalize: function() {
                   return (this.count > 0) ? (this.sum / this.count) : 0;
                 }
               };
