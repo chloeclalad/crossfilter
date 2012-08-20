@@ -3,6 +3,30 @@
   coreops = {};
   coreops.version = "0.0.1";
 
+  /**
+   * Normalize a response from crossfilter reduce
+   *
+   * If value objects contain a callable function value(), call that and
+   * replace the value with the result.
+   * @param val
+   */
+  function finalize(val) {
+    if (_.isArray(val)) {
+      _.map(val, finalize);
+    } else {
+      if (_.has(val, 'value') && _.isFunction(val.value)) {
+        return val.value();
+      } else {
+        if (_.has(val, 'value') && _.isObject(val.value)) {
+          val.value = finalize(val.value);
+          return val;
+        } else {
+          return val;
+        }
+      }
+    }
+  }
+
   function coreops_reduceAdd(f) {
     return function(p, v) {
       return p + +f(v);
@@ -79,7 +103,6 @@
     return p - 1;
   }
 
-
   function coreops_initialZero() {
     return 0;
   }
@@ -135,5 +158,6 @@
   coreops.count = count;
   coreops.average = average;
   coreops.extents = extents;
+  coreops.finalize = finalize;
   exports.coreops = coreops;
 })(this);
