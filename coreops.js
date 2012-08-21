@@ -118,7 +118,7 @@
 
   // Calculate the average value in value.value()
   function average(prop) {
-    var accessor = function(d) { return d[prop] };
+    var accessor = (_.isFunction(prop)) ? prop : function(d) { return d[prop] };
     return {
             add: coreops_reduceAddAverage(accessor),
             remove: coreops_reduceRemoveAverage(accessor),
@@ -135,7 +135,7 @@
 
   // Calculate the [min, max] in value.value()
   function extents(prop) {
-    var accessor = function(d) { return d[prop] };
+    var accessor = (_.isFunction(prop)) ? prop : function(d) { return d[prop] };
     return {
             add: coreops_reduceAddExtents(accessor),
             remove: coreops_reduceRemoveExtents(accessor),
