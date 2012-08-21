@@ -199,17 +199,17 @@ suite.addBatch({
       ]);
 
       // Grouping reduction with composition
-      v = data.groupAll().reduce(coreops.group('type', coreops.compose({
+      v = data.groupAll().reduce(coreops.by('type', coreops.compose({
         "tip_extents":coreops.extents('tip'),
         "quantity_total":coreops.sum('quantity')
-      }))).all();
+      }))).value();
 
       assert.deepEqual(coreops.finalize(v),
-          [
-            {"cash", "value":{ tip_extents:[ 0, 0 ], quantity_total:2 }},
-            {"tab", "value":{ tip_extents:[ 0, 100 ], quantity_total:6 }},
-            {"visa", "value":{ tip_extents:[ 200, 200 ], quantity_total:1 }}
-          ]
+          {
+            "cash": { tip_extents:[ 0, 0 ], quantity_total:2 },
+            "tab":  { tip_extents:[ 0, 100 ], quantity_total:6 },
+            "visa": { tip_extents:[ 200, 200 ], quantity_total:1 }
+          }
       );
 
     }
