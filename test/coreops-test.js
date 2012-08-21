@@ -103,6 +103,33 @@ suite.addBatch({
       ];
       var v2 = coreops.finalize(v);
       assert.deepEqual(v2, [ { key: 'vt', value: 100 }, { key: 'nh', value: 111 } ]);
+
+
+    },
+
+    "test compose": function(data) {
+      var v;
+      v = data.type.group().reduce(coreops.compose({
+          "tip_extents": coreops.extents('tip'),
+          "quantity_total": coreops.sum('quantity')
+        })).all();
+
+      assert.deepEqual(coreops.finalize(v),
+          [ {"key": "cash", "value": { tip_extents: [ 0, 0 ], quantity_total: 2 }},
+            {"key": "tab", "value":  { tip_extents: [ 0, 100 ], quantity_total: 6 }},
+            {"key": "visa", "value": { tip_extents: [ 200, 200 ], quantity_total: 1 }}]
+      );
+
+      // Test custom finalizer
+      v = data.tip.groupAll().reduce(coreops.average('tip')).value();
+      assert(coreops.finalize(v) == 80);
+      v = data.tip.groupAll().reduce(coreops.compose({
+          "sum": coreops.sum('tip'),
+          "count": coreops.count()
+        }, function() { return this.sum / this.count})).value();
+      assert(coreops.finalize(v) == 80);
+
+
     }
 
 

@@ -25,6 +25,7 @@
     return val;
   }
 
+
   function coreops_reduceAdd(f) {
     return function(p, v) {
       return p + +f(v);
@@ -152,24 +153,59 @@
     }
   }
 
-
-// This is what it should look like
-//  data.type.group().reduce(coreops.compose({
-//    "tip_extents": coreops.extents('tip'),
-//    "quantity_total": coreops.sum('quantity')
-//  }).all();
-
-  function compose(ops) {
-    return {
-      add: function(p, v) {
-
-      },
-      remove: function(p, v) {
-
-      },
-      initial: function() {
-
+  
+  /**
+   * Support composition of reductions by passing an object. Object keys
+   * represent the key names in the output value object. Object
+   * values are reductions.
+   *
+   * For instance:
+   *
+   *     data.type.group().reduce(coreops.compose({
+   *      "tip_extents": coreops.extents('tip'),
+   *      "quantity_total": coreops.sum('quantity')
+   *     }).all();
+   *
+   * This will create value objects that contain
+   *
+   *    { "tip_extents": ....
+   *      "quantity_total": .... }
+   *
+   * @param ops an object
+   * @param finalize an optional finalizer
+   * @return {Object}
+   */
+  function compose(ops, finalize) {
+    var initial = function() {
+      return function() {
+        init = {};
+        _.each(_.keys(ops), function(k) {
+          init[k] = ops[k].initial();
+        });
+        if (finalize && _.isFunction(finalize)) init.finalize = finalize;
+        return init;
       }
+    }
+    var add = function() {
+      return function(p, v) {
+        _.each(_.keys(ops), function(k) {
+          p[k] = ops[k].add(p[k], v);
+        });
+        return p;
+      }
+    }
+    var remove = function() {
+      return function(p, v) {
+        _.each(_.keys(ops), function(k) {
+          p[k] = ops[k].remove(p[k], v);
+        });
+        return p;
+      }
+    }
+    return {
+      add: add(),
+      remove: remove(),
+      initial: initial()
     }
   }
 
@@ -178,5 +214,6 @@
   coreops.average = average;
   coreops.extents = extents;
   coreops.finalize = finalize;
+  coreops.compose = compose;
   exports.coreops = coreops;
 })(this);
