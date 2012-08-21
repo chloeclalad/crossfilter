@@ -3,27 +3,24 @@
   coreops = {};
   coreops.version = "0.0.1";
 
-  /**
-   * Normalize a response from crossfilter reduce
-   *
-   * If value objects contain a callable function finalize(), call that and
-   * replace the value with the result.
-   * @param val
-   */
+
+  // Normalize a response from crossfilter reduce
+  // If value object contain a callable `finalize()`, call that and
+  // replace the value with the result.
   function finalize(val) {
-    if (_.isArray(val)) {
-      _.map(val, finalize);
-    } else {
-      if (_.has(val, 'finalize') && _.isFunction(val.finalize)) {
-        return val.finalize();
-      } else {
-        if (_.has(val, 'value') && _.isObject(val.value)) {
-          val.value = finalize(val.value);
-          return val;
-        } else {
-          return val;
-        }
-      }
+    var result;
+    if (_.isArray(val))
+      return _.map(val, finalize);
+    if (_.has(val, 'finalize') && _.isFunction(val.finalize))
+      return val.finalize();
+    if (_.isObject(val)) {
+      result = {};
+      _.each(_.keys(val), function(k) {
+        result[k] = (_.has(val[k], 'finalize') && _.isFunction(val[k].finalize)) ?
+                    val[k].finalize() :
+                    (_.isObject(val[k])) ? finalize(val[k]) : val[k];
+      });
+      return result;
     }
     return val;
   }

@@ -84,8 +84,14 @@ suite.addBatch({
     },
 
     "test finalize": function(data) {
-      var v = { key: "moo", finalize: function() { return 99; }};
-      assert(coreops.finalize(v) == 99);
+      var val = data.tip.groupAll().reduce(coreops.average('tip')).value();
+      assert(coreops.finalize(val) == 80);
+
+      // Can still filter and calculate after finalizing
+      data.type.filterExact("tab");
+      var val = data.tip.groupAll().reduce(coreops.average('tip')).value();
+      assert(coreops.finalize(val) == 200 / 3);
+      data.type.filter(null);
 
       var v = { key: "moo", value: { finalize: function() { return 99; }}};
       var v2 = coreops.finalize(v);
