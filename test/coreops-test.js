@@ -175,13 +175,13 @@ suite.addBatch({
       v = data.groupAll().reduce(coreops.by('type', coreops.sum('quantity')));
       assert.deepEqual(v.value(), { tab:6, visa:1, cash:2 });
 
+      // Grouping reduction after filtering
       data.type.filterExact("tab");
-      // Grouping reduction (group by type)
       v = data.groupAll().reduce(coreops.by('type', coreops.sum('quantity')));
       assert.deepEqual(v.value(), { tab:6 });
       data.type.filterExact(null);
 
-      // Grouping reduction (group by type)
+      // Grouping reduction (group by type) with a group
       v = data.type.group().reduce(coreops.by('type', coreops.sum('quantity')));
       assert.deepEqual(v.all(), [
         {
@@ -197,6 +197,20 @@ suite.addBatch({
           key:'visa'
         }
       ]);
+
+      // Grouping reduction with composition
+      v = data.groupAll().reduce(coreops.group('type', coreops.compose({
+        "tip_extents":coreops.extents('tip'),
+        "quantity_total":coreops.sum('quantity')
+      }))).all();
+
+      assert.deepEqual(coreops.finalize(v),
+          [
+            {"cash", "value":{ tip_extents:[ 0, 0 ], quantity_total:2 }},
+            {"tab", "value":{ tip_extents:[ 0, 100 ], quantity_total:6 }},
+            {"visa", "value":{ tip_extents:[ 200, 200 ], quantity_total:1 }}
+          ]
+      );
 
     }
 
