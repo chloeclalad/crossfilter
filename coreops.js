@@ -209,11 +209,63 @@
     }
   }
 
+  /**
+   * Reduce by a group
+   *
+   * For instance:
+   *
+   *     data.type.group().reduce(
+   *        coreops.by('tip', coreops.sum('quantity')).all()
+   *
+   * This will create value objects for each instance of the
+   * groupby accessor
+   *
+   *    { "tip_extents": ....
+   *      "quantity_total": .... }
+   *
+   * @param groupby A string or accessor
+   * @param finalize an optional finalizer
+   * @return {Object}
+   */
+  function by(groupby, reduce, finalize) {
+    var groupaccessor = (_.isFunction(groupby)) ? groupby : function(d) { return d[groupby] };
+    var initial = function() {
+      return function() {
+        init = {};
+        if (finalize && _.isFunction(finalize)) init.finalize = finalize;
+        return init;
+      }
+    }
+    var add = function() {
+      return function(p, v) {
+        var group = groupaccessor(v);
+        if (!_.has(p, group)) p[group] = reduce.initial();
+        p[group] = reduce.add(p[group], v);
+        return p;
+      }
+    }
+    var remove = function() {
+      return function(p, v) {
+        var group = groupaccessor(v);
+        if (!_.has(p, group)) p[group] = reduce.initial();
+        p[group] = reduce.remove(p[group], v);
+        return p;
+      }
+    }
+    return {
+      add: add(),
+      remove: remove(),
+      initial: initial()
+    }
+  }
+
+
   coreops.sum = sum;
   coreops.count = count;
   coreops.average = average;
   coreops.extents = extents;
   coreops.finalize = finalize;
   coreops.compose = compose;
+  coreops.by = by;
   exports.coreops = coreops;
 })(this);
