@@ -2,11 +2,10 @@ var vows = require("vows"),
     assert = require("assert"),
     d3 = require("d3"),
     _ = require("underscore"),
-    crossfilter = require("../"),
-    coreops = require("../coreops.js");
+    crossfilter = require("../");
 
 var suite = vows.describe("coreops");
-coreops = coreops.coreops;
+var coreops = crossfilter.reduceops;
 
 suite.addBatch({
   "coreops":{
@@ -136,7 +135,6 @@ suite.addBatch({
         { key:'vt', value:100 },
         { key:'nh', value:111 }
       ]);
-
 
     },
 

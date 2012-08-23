@@ -20,6 +20,7 @@ crossfilter.js: \
 	src/zero.js \
 	src/reduce.js \
 	src/crossfilter.js \
+	src/coreops.js \
 	Makefile
 
 %.min.js: %.js Makefile
