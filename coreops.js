@@ -1,5 +1,6 @@
 (function(exports){
   _ = require("underscore");
+  crossfilter = require("./crossfilter").crossfilter;
   coreops = {};
   coreops.version = "0.0.1";
 
@@ -64,7 +65,10 @@
   // an array of [min, max] in value.value()
   function coreops_reduceAddExtents(f) {
     return function(p, v) {
-      p.candidates.push(f(v));
+      var __ = f(v);
+      if (__ !== undefined && __ !== null) {
+        p.candidates.splice(crossfilter.bisect.left(p.candidates, __, 0, p.candidates.length), 0, __);
+      }
       return p;
     };
   }
@@ -83,12 +87,10 @@
       candidates: [],
       finalize: function() {
         var min, max;
-        _.each(this.candidates, function(d) {
-          if (min === undefined) min = d;
-          if (max === undefined) max = d;
-          if (d !== undefined && d < min) min = d;
-          if (d !== undefined && d > max) max = d;
-        })
+        if (this.candidates.length) {
+          min = this.candidates[0];
+          max = this.candidates[this.candidates.length-1];
+        }
         return [min, max];
       }
     };
