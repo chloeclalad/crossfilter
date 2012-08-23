@@ -472,7 +472,7 @@ function crossfilter_arrayUntyped(n) {
 function crossfilter_filterExact(bisect, value) {
   return function(values) {
     var n = values.length;
-    return [bisect.left(values, value, 0, n), bisect.right(values, value, 0, n)];
+    return [[bisect.left(values, value, 0, n), bisect.right(values, value, 0, n)]];
   };
 }
 
@@ -481,14 +481,47 @@ function crossfilter_filterRange(bisect, range) {
       max = range[1];
   return function(values) {
     var n = values.length;
-    return [bisect.left(values, min, 0, n), bisect.left(values, max, 0, n)];
+    return [[bisect.left(values, min, 0, n), bisect.left(values, max, 0, n)]];
   };
 }
 
 function crossfilter_filterAll(values) {
-  return [0, values.length];
+  return [[0, values.length]];
 }
-function crossfilter_null() {
+
+function crossfilter_filterUnion(bisect) {
+  var args = Array.prototype.slice.call(arguments, 1);
+
+  return function(values) {
+    var n = values.length,
+        r = [];
+
+    args.forEach(function(v) {
+      if (Array.isArray(v)) {
+        r.push( crossfilter_filterRange(bisect, v)(values)[0] );
+      }
+      else if(v) {
+        r.push( crossfilter_filterExact(bisect, v)(values)[0] );
+      }
+    });
+
+    // sort r in ascending order of the lower bound
+    r.sort(function(a, b) {
+      return a[0] - b[0];
+    });
+
+    // remove duplicate intervals
+    for(var i = 0, l = r.length-1; i < l; ++i) {
+      if ( (r[i][0] == r[i+1][0]) && (r[i][1] == r[i+1][1]) ) {
+        r.splice(i, 1);
+        --l;
+        --i;
+      }
+    }
+
+    return r;
+  };
+}function crossfilter_null() {
   return null;
 }
 function crossfilter_zero() {
@@ -570,8 +603,7 @@ function crossfilter() {
         sort = quicksort_by(function(i) { return newValues[i]; }),
         refilter = crossfilter_filterAll, // for recomputing filter
         indexListeners = [], // when data is added
-        lo0 = 0,
-        hi0 = 0;
+        bounds = [[0, 0]];
 
     // Updating a dimension is a two-stage process. First, we must update the
     // associated filters for the newly-added records. Once all dimensions have
@@ -595,17 +627,25 @@ function crossfilter() {
       newValues = permute(newValues, newIndex);
 
       // Bisect newValues to determine which new records are selected.
-      var bounds = refilter(newValues), lo1 = bounds[0], hi1 = bounds[1], i;
-      for (i = 0; i < lo1; ++i) filters[newIndex[i] + n0] |= one;
-      for (i = hi1; i < n1; ++i) filters[newIndex[i] + n0] |= one;
+      bounds = refilter(newValues);
+      var lo1, hi1, i;
+      // select everything to begin with.
+      for (i = 0; i < n1; ++i) filters[newIndex[i] + n0] |= one;
+      // now unselect the matching records.
+      bounds.forEach(function(b) {
+        lo1 = b[0], hi1 = b[1];
+        for (i = lo1; i < hi1; ++i) {
+          if (filters[newIndex[i] + n0] & one) {
+            filters[newIndex[i] + n0] ^= one;
+          }
+        }
+      });
 
       // If this dimension previously had no data, then we don't need to do the
       // more expensive merge operation; use the new values and index as-is.
       if (!n0) {
         values = newValues;
         index = newIndex;
-        lo0 = lo1;
-        hi0 = hi1;
         return;
       }
 
@@ -642,7 +682,7 @@ function crossfilter() {
       }
 
       // Bisect again to recompute lo0 and hi0.
-      bounds = refilter(values), lo0 = bounds[0], hi0 = bounds[1];
+      bounds = refilter(values);
     }
 
     // When all filters have updated, notify index listeners of the new values.
@@ -651,48 +691,143 @@ function crossfilter() {
       newValues = newIndex = null;
     }
 
-    // Updates the selected values based on the specified bounds [lo, hi].
+    // Updates the selected values based on the specified bounds [[lo, hi]].
     // This implementation is used by all the public filter methods.
-    function filterIndex(bounds) {
+    function filterIndex(bounds1) {
       var i,
           j,
           k,
-          lo1 = bounds[0],
-          hi1 = bounds[1],
+          lo1,
+          hi1,
+          lo0,
+          hi0,
           added = [],
-          removed = [];
+          removed = [],
+          b, // current old bound
+          b1, // current new bound
+          x1, // new interval to add/remove
+          x2; // new interval to add/remove
 
-      // Fast incremental update based on previous lo index.
-      if (lo1 < lo0) {
-        for (i = lo1, j = Math.min(lo0, hi1); i < j; ++i) {
-          filters[k = index[i]] ^= one;
-          added.push(k);
-        }
-      } else if (lo1 > lo0) {
-        for (i = lo0, j = Math.min(lo1, hi0); i < j; ++i) {
-          filters[k = index[i]] ^= one;
-          removed.push(k);
+      var copy_bounds1 = new Array();
+      bounds1.forEach(function(b) {
+        copy_bounds1.push(b);
+      });
+
+      // Find new intervals for fast incremental updates.
+      // At the end, `bounds` wil contain the intervals
+      // that should be removed and `bounds1` will contain
+      // the intervals that should be added.
+      for (i = 0, l1 = bounds1.length; i < l1; ++i) {
+        b1 = bounds1[i];
+
+        for (j = 0, l = bounds.length; j < l; ++j) {
+          b = bounds[j];
+
+          if (same(b, b1)) {
+            bounds.splice(j, 1);
+            bounds1.splice(i, 1);
+            --i;
+            j = bounds.length;
+            l = bounds.length;
+            l1 = bounds1.length;
+          }
+          // if `b1[lo1, hi1]` is fully contained inside `b[lo0, hi0]`,
+          // split the bounding interval into the intervals
+          // `[lo0, lo1]` and `[hi1, hi0]` that should be removed.
+          // For e.g. if b = [0, 15] and b1 = [0, 6],
+          // the intervals [0,0] and [6, 15] should be removed.
+          else if (contains(b, b1)) {
+            var x1 = [b[0], b1[0]],
+                x2 = [b1[1], b[1]];
+
+            bounds.splice(j, 1, x1, x2);
+            bounds1.splice(i, 1);
+            l1 = bounds1.length;
+            --i;
+            j = bounds.length;
+            l = bounds.length;
+          }
+          // if `b[lo0, hi0]` is fully contained inside of `b1[lo1, hi1]`,
+          // split the bounding interval into the intervals
+          // `[lo1, lo0]` and `[hi0, hi1]` that should be added.
+          // Also, remove `b[lo0, hi0]` from consideration.
+          // For e.g. if b = [0, 6] and b1 = [0, 15],
+          // the intervals [0,0] and [6,15] should be added and
+          // [0,6] should be removed from consideration.
+          else if (contains(b1, b)) {
+            bounds.splice(j, 1);
+            var x1 = [b1[0], b[0]],
+                x2 = [b[1], b1[1]];
+            bounds1.splice(i, 1, x1, x2);
+            --i;
+            j = bounds.length;
+            l = bounds.length;
+            l1 = bounds1.length;
+          }
+          // if there is a partial overlap between the two intervals,
+          // break each interval up into another interval that should
+          // be added/removed depending on if the higher bound/lower
+          // bound intersects.
+          else if (overlapsWith(b1, b)) {
+            lo0 = b[0], hi0 = b[1];
+            lo1 = b1[0], hi1 = b1[1];
+            var x1, x2;
+            // the lower bound of the new interval intersects
+            if (lo0 < lo1) {
+              x1 = [lo0, lo1];
+              bounds.splice(j, 1, x1);
+              x2 = [hi0, hi1];
+              bounds1.splice(i, 1, x2);
+              b1 = x2;
+            }
+            // the higher bound of the new interval intersects
+            else if (lo1 < lo0) {
+              x1 = [lo1, lo0];
+              bounds1.splice(i, 1, x1);
+              b1 = x1;
+              x2 = [hi1, hi0];
+              bounds.splice(j, 1, x2);
+            }
+          }
         }
       }
 
-      // Fast incremental update based on previous hi index.
-      if (hi1 > hi0) {
-        for (i = Math.max(lo1, hi0), j = hi1; i < j; ++i) {
+      function same(a, b) {
+        return (a[0] == b[0] && a[1] == b[1]);
+      }
+
+      function contains(container, containee) {
+        return (containee[0] >= container[0] && containee[1] <= container[1]);
+      }
+
+      function overlapsWith(a, b) {
+        return (a[0] >= b[0] && a[0] <= b[1]) || (a[1] >= b[0] && a[1] <= b[1]);
+      }
+
+      // Intervals to be added.
+      bounds1.forEach(function(b) {
+        lo1 = b[0], hi1 = b[1];
+        for (i = lo1, j = hi1; i < j; ++i) {
           filters[k = index[i]] ^= one;
           added.push(k);
         }
-      } else if (hi1 < hi0) {
-        for (i = Math.max(lo0, hi1), j = hi0; i < j; ++i) {
+      });
+
+      // Intervals to be removed.
+      bounds.forEach(function(b) {
+        lo0 = b[0], hi0 = b[1];
+        for (i = lo0, j = hi0; i < j; ++i) {
           filters[k = index[i]] ^= one;
           removed.push(k);
         }
-      }
+      });
 
-      lo0 = lo1;
-      hi0 = hi1;
+      bounds = copy_bounds1;
+
       filterListeners.forEach(function(l) { l(one, added, removed); });
       return dimension;
     }
+
 
     // Filters this dimension using the specified range, value, or null.
     // If the range is null, this is equivalent to filterAll.
@@ -700,8 +835,9 @@ function crossfilter() {
     // Otherwise, this is equivalent to filterExact.
     function filter(range) {
       return range == null
-          ? filterAll() : Array.isArray(range)
-          ? filterRange(range)
+          ? filterAll() : Array.isArray(range) && arguments.length == 1
+          ? filterRange(range) : arguments.length > 1
+          ? filterUnion.apply(this, arguments)
           : filterExact(range);
     }
 
@@ -721,17 +857,33 @@ function crossfilter() {
       return filterIndex((refilter = crossfilter_filterAll)(values));
     }
 
+    function filterUnion() {
+      var args = Array.prototype.slice.call(arguments, 0);
+      args.unshift(bisect);
+      return filterIndex( (refilter = crossfilter_filterUnion.apply(this, args))(values) );
+    }
+
     // Returns the top K selected records, based on this dimension's order.
     // Note: observes this dimension's filter, unlike group and groupAll.
     function top(k) {
       var array = [],
-          i = hi0,
-          j;
+          lo0,
+          i,
+          j,
+          n = bounds.length-1;
 
-      while (--i >= lo0 && k > 0) {
+      i = bounds[n][1];
+      lo0 = bounds[n][0];
+
+      while (--i >= lo0 && k > 0 && n >=0) {
         if (!filters[j = index[i]]) {
           array.push(data[j]);
           --k;
+        }
+        if (i < lo0 && n > 0) {
+          --n;
+          i = bounds[n][1];
+          lo0 = bounds[n][0];
         }
       }
 
