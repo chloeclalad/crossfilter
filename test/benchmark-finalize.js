@@ -1,8 +1,6 @@
 var crossfilter = require("../"),
-    d3 = require("d3");
-    coreops = require("../coreops.js")
-
-coreops = coreops.coreops;
+    d3 = require("d3"),
+    coreops = crossfilter.reduceops;
 
 var then,
     then2;
