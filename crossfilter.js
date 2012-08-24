@@ -1343,23 +1343,18 @@ coreops.version = "0.0.1";
 var _ = exports._;
 if (!_ && (typeof require !== 'undefined')) _ = require("underscore");
 
-// Normalize a response from crossfilter reduce
-// If value object contain a callable `finalize()`, call that and
-// replace the value with the result.
+// Normalize a response from crossfilter `reduce`.
+// If `value` object contain a callable `finalize()`, call that and
+// replace the `value` with the result.
 function coreops_finalize(val) {
-  var result;
   if (_.isArray(val))
     return _.map(val, coreops_finalize);
-  if (_.has(val, 'finalize') && _.isFunction(val.finalize))
+  if (_.isObject(val) && _.has(val, 'value') && _.has(val.value, 'finalize') && _.isFunction(val.value.finalize)) {
+    val.value = val.value.finalize();
+    return val;
+  }
+  if (_.isObject(val) && _.has(val, 'finalize') && _.isFunction(val.finalize)) {
     return val.finalize();
-  if (_.isObject(val)) {
-    result = {};
-    _.each(_.keys(val), function(k) {
-      result[k] = (_.has(val[k], 'finalize') && _.isFunction(val[k].finalize)) ?
-                  val[k].finalize() :
-                  (_.isObject(val[k])) ? coreops_finalize(val[k]) : val[k];
-    });
-    return result;
   }
   return val;
 }
@@ -1523,6 +1518,21 @@ function coreops_compose(ops, finalize) {
         init[k] = ops[k].initial();
       });
       if (finalize && _.isFunction(finalize)) init.finalize = finalize;
+      else {
+        init.finalize = function() {
+          var r = {};
+          _.each(_.keys(this), function(k) {
+              var __ = this[k];
+              if (k !== 'finalize') {
+                r[k] = __;
+              }
+              if (_.has(__, 'finalize') && _.isFunction(__.finalize)) {
+                r[k] = __.finalize();
+              }
+          }, this);
+          return r;
+        };
+      }
       return init;
     }
   }
@@ -1573,6 +1583,21 @@ function coreops_by(groupby, reduce, finalize) {
     return function() {
       init = {};
       if (finalize && _.isFunction(finalize)) init.finalize = finalize;
+      else {
+        init.finalize = function() {
+          var r = {};
+          _.each(_.keys(this), function(k) {
+              var __ = this[k];
+              if (k !== 'finalize') {
+                r[k] = __;
+              }
+              if (_.has(__, 'finalize') && _.isFunction(__.finalize)) {
+                r[k] = __.finalize();
+              }
+          }, this);
+          return r;
+        };
+      }
       return init;
     }
   }

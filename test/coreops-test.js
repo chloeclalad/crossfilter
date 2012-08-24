@@ -171,17 +171,17 @@ suite.addBatch({
 
       // Grouping reduction (group by type)
       v = data.groupAll().reduce(coreops.by('type', coreops.sum('quantity')));
-      assert.deepEqual(v.value(), { tab:6, visa:1, cash:2 });
+      assert.deepEqual(coreops.finalize(v.value()), { tab:6, visa:1, cash:2 });
 
       // Grouping reduction after filtering
       data.type.filterExact("tab");
       v = data.groupAll().reduce(coreops.by('type', coreops.sum('quantity')));
-      assert.deepEqual(v.value(), { tab:6 });
+      assert.deepEqual(coreops.finalize(v.value()), { tab:6 });
       data.type.filterExact(null);
 
       // Grouping reduction (group by type) with a group
       v = data.type.group().reduce(coreops.by('type', coreops.sum('quantity')));
-      assert.deepEqual(v.all(), [
+      assert.deepEqual(coreops.finalize(v.all()), [
         {
           value:{ cash:2 },
           key:'cash'
